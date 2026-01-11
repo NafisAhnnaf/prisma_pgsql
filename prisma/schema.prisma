@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @db.VarChar(50)
+  first_name   String?
+  avatar       String?         
+  last_name    String?        
+  email        String        @unique
+  password     String?
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  admin        Admin?
+  member       Member?
+  participant  Participant?
+  posts        Post[]
+}
+
+model Admin {
+  id          Int       @id @default(autoincrement())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedAt  DateTime  @default(now())
+  approvedBy  String?   // admin userId
+}
+
+model Member {
+  id          Int       @id @default(autoincrement())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      MemberStatus
+  approvedAt  DateTime?
+  approvedBy  String?
+}
+
+enum MemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Participant {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String?
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId])
+}
+
+
+model Post{
+  id          Int       @id @default(autoincrement())
+  userID      String    @db.VarChar(50)
+  user        User      @relation(fields: [userID], references: [id])
+  title       String    @db.VarChar
+  content     String    @db.VarChar
+  image_urls  String[]  @db.VarChar
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  updated_at  DateTime  @default(now()) @db.Timestamp(6)
+
+  @@index([userID])
+}
