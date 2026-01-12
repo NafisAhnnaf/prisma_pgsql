@@ -7,37 +7,58 @@ datasource db {
   provider = "postgresql"
 }
 
+
+// ==========================
+// User & Authentication
+// ==========================   
 model User {
-  id           String        @id @db.VarChar(50)
+  id           String        @id @default(uuid()) @db.Uuid
   first_name   String?
   avatar       String?         
   last_name    String?        
   email        String        @unique
   password     String?
-  created_at   DateTime      @default(now())
-  updated_at   DateTime      @updatedAt
+  birth_date   DateTime?      @db.Date
+  roll_number  Int?      
+  created_at   DateTime      @default(now()) @db.Timestamp(6)
+  updated_at   DateTime      @updatedAt @db.Timestamp(6) 
 
+  developer    Developer?
   admin        Admin?
   member       Member?
   participant  Participant?
   posts        Post[]
+  comments     Comment[]
+}
+
+model Developer {
+  id               String    @id @default(uuid()) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model Admin {
-  id          Int       @id @default(autoincrement())
-  userId      String    @unique
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  approvedAt  DateTime  @default(now())
-  approvedBy  String?   // admin userId
+  id               String    @id @default(uuid()) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  approved_at      DateTime  @default(now())
+  approved_by_id   String?   @db.Uuid
+  approved_by      Admin?    @relation("AdminApprovals", fields: [approved_by_id], references: [id])
+  admin_approvals  Admin[]   @relation("AdminApprovals") // admins this admin has approved
+  member_approvals Member[]
+  events           Event[]
 }
 
+
 model Member {
-  id          Int       @id @default(autoincrement())
-  userId      String    @unique
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status      MemberStatus
-  approvedAt  DateTime?
-  approvedBy  String?
+  id              String        @id @default(uuid()) @db.Uuid
+  user_id         String        @unique @db.Uuid
+  user            User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  status          MemberStatus  @default(PENDING)
+  approved_at     DateTime?
+  approved_by_id  String?       @db.Uuid
+  approved_by     Admin?        @relation(fields: [approved_by_id], references: [id])   
 }
 
 enum MemberStatus {
@@ -46,26 +67,149 @@ enum MemberStatus {
   REJECTED
 }
 
-model Participant {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String?
-  joinedAt  DateTime @default(now())
 
-  @@unique([userId])
+
+// ==========================
+// Academic / Participants
+// ==========================
+
+
+enum StudyLevel {
+  SIX
+  SEVEN
+  EIGHT
+  NINE 
+  TEN 
+  SSC 
+  O_LEVEL
+  HSC 
+  A_LEVEL
+  UNIVERSITY
+}
+model Participant {
+  id              String   @id @default(uuid()) @db.Uuid
+  user_id         String   @unique @db.Uuid
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  study_level     StudyLevel 
+  institution_id  String?  @db.Uuid
+  institution     Institution? @relation(fields: [institution_id], references: [id])
+  events          EventParticipant[]
+
+  @@index([institution_id])
+}
+
+model Institution {
+  id           String @id @default(uuid()) @db.Uuid
+  name         String @unique 
+  location     String 
+  eiin         Int?
+  participants Participant[] 
 }
 
 
-model Post{
-  id          Int       @id @default(autoincrement())
-  userID      String    @db.VarChar(50)
-  user        User      @relation(fields: [userID], references: [id])
-  title       String    @db.VarChar
-  content     String    @db.VarChar
-  image_urls  String[]  @db.VarChar
-  created_at  DateTime  @default(now()) @db.Timestamp(6)
-  updated_at  DateTime  @default(now()) @db.Timestamp(6)
 
-  @@index([userID])
+
+// ==========================
+// Events
+// ==========================
+
+enum EventType {
+  INTRA_CAMPUS
+  INTER_CAMPUS
+  ONLINE
+}
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  ENDED
+}
+model Event {
+  id            String @id @default(uuid()) @db.Uuid
+  title         String
+  description   String @db.Text
+  type          EventType 
+  image_url     String?
+  tags          String[] @db.Text
+  status        EventStatus @default(UPCOMING)
+  sponsors      String[] 
+  sub_events    SubEvent[] 
+  starts_at     DateTime
+  ends_at       DateTime 
+  participants  EventParticipant[]
+  admin_id      String @db.Uuid
+  created_by    Admin @relation(fields: [admin_id], references: [id])
+  created_at    DateTime @db.Timestamp(6) @default(now())
+
+  @@index([starts_at, created_at])
+}
+model SubEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  event_id      String    @db.Uuid
+  title         String
+  description   String?   @db.Text
+  image_url     String? 
+  starts_at     DateTime?
+  ends_at       DateTime?
+
+  event         Event     @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  participants  EventParticipant[]  
+
+  @@index([event_id])
+}
+
+
+enum RegistrationStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+model EventParticipant {
+  id                  String @id @default(uuid()) @db.Uuid
+  event_id            String @db.Uuid
+  event               Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  sub_event_id        String? @db.Uuid
+  sub_event           SubEvent? @relation(fields: [sub_event_id], references: [id], onDelete: Cascade)
+  participant_id      String @db.Uuid
+  registration_status RegistrationStatus @default(PENDING)
+  participant         Participant @relation(fields: [participant_id], references: [id], onDelete: Cascade)
+  created_at          DateTime @db.Timestamp() @default(now())
+  registered_at       DateTime? @db.Timestamp() //If completed registration then record date
+
+  @@unique([event_id, sub_event_id, participant_id])
+  @@index([participant_id])
+}
+
+
+
+
+
+// ==========================
+// Posts & Comments
+// ==========================
+model Post{
+  id          String    @id @default(uuid()) @db.Uuid
+  user_id     String    @db.Uuid
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  title       String
+  content     String    @db.Text
+  image_urls  String[]  @db.Text
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  updated_at  DateTime  @updatedAt @db.Timestamp(6)
+  comments    Comment[]
+
+  @@index([user_id, created_at])
+}
+
+model Comment{
+  id          String @id @default(uuid()) @db.Uuid
+  user_id     String @db.Uuid
+  user        User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post_id     String @db.Uuid
+  post        Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  content     String
+  likes       Int @default(0)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([post_id, user_id, created_at])
 }

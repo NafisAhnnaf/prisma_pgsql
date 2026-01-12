@@ -2,8 +2,11 @@
   "compilerOptions": {
     // File Layout
     "rootDir": ".",
+    "baseUrl": ".",
     "outDir": "./dist",
-    
+    "paths": {
+      "@/*": ["*"]
+    },
     // Module System
     "module": "nodenext",
     "target": "ES2022",
