@@ -2,7 +2,6 @@ import express from 'express';
 import "dotenv/config";
 import cors from 'cors'
 import routes from './routes/index.ts'
-import UserRoutes from './routes/user.routes.ts'
 
 const PORT = process.env.PORT || 8000;
 
@@ -12,7 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use((req, _res, next) => {
-    console.log(req.method, req.url, req.headers.authorization);
+    console.log(req.method, req.url);
     next();
 });
 app.use('/api', routes);
