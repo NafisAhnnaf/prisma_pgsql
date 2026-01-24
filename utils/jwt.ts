@@ -12,6 +12,16 @@ const encodeJwt = (id: string): string => {
         { expiresIn: "6h" }
     );
 };
+const encodeRefreshToken = (id: string): string => {
+    if (!id) throw new Error("ID missing");
+    if (!secret) throw new Error("JWT secret missing");
+
+    return jwt.sign(
+        { sub: id },
+        secret,
+        { expiresIn: "7d" }
+    );
+};
 
 const decodeJwt = (token: string): string => {
     if (!token) throw new Error("Token missing");
@@ -26,4 +36,4 @@ const decodeJwt = (token: string): string => {
     return payload.sub as string;
 };
 
-export { encodeJwt, decodeJwt };
+export { encodeJwt, decodeJwt, encodeRefreshToken };
